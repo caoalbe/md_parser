@@ -32,11 +32,7 @@ impl Config {
 
 pub fn run(config: Config) -> Result<(), Box<dyn Error>> {
     // LEXER
-    let tokens: Vec<Token> = match lexer(&config) {
-        Ok(val) => val,
-        // Err(io_err) => { return Err(Box::new(io_err)) }
-        Err(io_err) => { return Err(io_err) }
-    };
+    let tokens: Vec<Token> = lexer(&config)?;
 
     // just for debugging
     println!("   type - value");
@@ -46,7 +42,6 @@ pub fn run(config: Config) -> Result<(), Box<dyn Error>> {
             Prefix => { println!(" prefix - {}", token.value); }
             Suffix => { println!(" suffix - {}", token.value); }
             Literal => { println!("literal - {}", token.value); }
-            // Blank => { println!("newline - {}", token.value); }
         }
     }
     println!("-=-=-=--=-=-=--=-=-=--=-=-=--=-=-=--=-=-=--=-=-=--=-=-=--=-=-=-");
@@ -127,11 +122,6 @@ pub enum Element {
     Block(Node),
 }
 
-// pub struct Node {
-//     pub tag: String,
-//     pub content: Content
-// }
-
 // todo: add &parent field
 pub enum Node {
     Branch {
@@ -143,17 +133,6 @@ pub enum Node {
         literal: String
     }
 }
-
-// only a handful of states
-// 1) creating inline
-// 2) creating block
-
-// 2 actions: modify and submit content
-
-
-// 1) modify tag 2) modify text 3) add children 4) submit
-
-// always have an open node; by default is has <p>
 
 fn ast(token_vec: Vec<Token>) -> Node {
     let mut output: Node = Node::Branch {
@@ -167,6 +146,7 @@ fn ast(token_vec: Vec<Token>) -> Node {
     let mut open_tag: String = String::new();
     let mut open_content: String = String::new();
 
+    // this closure adds a node to the ast
     let mut submit_node = |open_tag: &mut String, open_content: &mut String| {
         if let Node::Branch { children, ..} = &mut output {
             children.push(Node::Leaf{
@@ -244,7 +224,6 @@ fn ast(token_vec: Vec<Token>) -> Node {
 
         i = i + 1;
     }
-
 
     output
 }
