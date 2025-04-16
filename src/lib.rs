@@ -208,13 +208,20 @@ fn ast(token_vec: Vec<Token>) -> Node {
             Suffix => {
                 // breakdown possible suffixes
                 if token_vec[i].value == "empty_line" {
-                    // println!("found!");
+                    match token_vec[i-1].token_type {
+                        Prefix => {},
+                        Suffix => {},
+                        Literal => {
+                            submit_node(&mut open_tag, &mut open_content);
+                        }
+                    }
                 } else {
                     // Modify node, then submit
                     open_tag = token_vec[i].value.clone();
                     submit_node(&mut open_tag, &mut open_content);                }
             },
             Literal => {
+                if open_tag == "" { open_tag = "p".to_string(); }
                 match token_vec[i-1].token_type {
                     Prefix => {
                         // Modify node, then submit
