@@ -2,6 +2,7 @@ use std::error::Error;
 use std::fs;
 
 use TokenType::*;
+use Node::*;
 
 pub struct Config {
     pub md_path: String,
@@ -49,19 +50,19 @@ pub fn run(config: Config) -> Result<(), Box<dyn Error>> {
     // AST
     let ast: Node = ast(tokens);
     match ast {
-        Node::Branch{tag: _, children} => {
+        Branch{tag: _, children} => {
             for node in children.iter() {
                 match node {
-                    Node::Branch{tag, children: _} => { 
+                    Branch{tag, children: _} => { 
                         println!("<{}>...</{}>", tag, tag);
                     },
-                    Node::Leaf{tag, literal} => { 
+                    Leaf{tag, literal} => { 
                         println!("<{}>{}</{}>", tag, literal, tag);
                     }
                 }
             }
         },
-        Node::Leaf{tag: _, literal: _} => { println!("you shouldnt see this"); }
+        Leaf{tag: _, literal: _} => { println!("you shouldnt see this"); }
     }
 
     // WRITE
@@ -73,8 +74,8 @@ pub enum TokenType {
     Prefix, Suffix, Literal
 }
 
-// create an enum for each token
-// then do smth like Prefix(h1) for token type
+// TODO: create an enum for each token
+// smth like Prefix(h1) for token type
 
 pub struct Token {
     pub token_type: TokenType,
@@ -130,7 +131,7 @@ pub enum Node {
 }
 
 fn ast(token_vec: Vec<Token>) -> Node {
-    let mut output: Node = Node::Branch {
+    let mut output: Node = Branch {
         tag: "doc".to_string(),
         children: Box::new(Vec::new())
     };
@@ -143,8 +144,8 @@ fn ast(token_vec: Vec<Token>) -> Node {
 
     // this closure adds a node to the ast
     let mut submit_node = |open_tag: &mut String, open_content: &mut String| {
-        if let Node::Branch { children, ..} = parent {
-            children.push(Node::Leaf{
+        if let Branch { children, ..} = parent {
+            children.push(Leaf{
                 tag: open_tag.clone(),
                 literal: open_content.clone()
             });
