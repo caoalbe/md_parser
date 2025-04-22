@@ -50,7 +50,7 @@ pub fn run(config: Config) -> Result<(), Box<dyn Error>> {
     let ast: Node = ast(tokens);
     match ast {
         Node::Branch{tag: _, children} => {
-            for node in children {
+            for node in children.iter() {
                 match node {
                     Node::Branch{tag, children: _} => { 
                         println!("<{}>...</{}>", tag, tag);
@@ -117,16 +117,11 @@ fn lexer(config: &Config) -> Result<Vec<Token>, Box<dyn Error>> {
     Ok(output)
 }
 
-pub enum Element {
-    Inline(String),
-    Block(Node),
-}
-
 // todo: add &parent field
 pub enum Node {
     Branch {
         tag: String,
-        children: Vec<Node>
+        children: Box<Vec<Node>>
     },
     Leaf {
         tag: String,
@@ -137,18 +132,18 @@ pub enum Node {
 fn ast(token_vec: Vec<Token>) -> Node {
     let mut output: Node = Node::Branch {
         tag: "doc".to_string(),
-        children: Vec::new()
+        children: Box::new(Vec::new())
     };
 
     if token_vec.len() == 0 { return output; }
 
-    let mut parent: &Node = &output;
+    let parent: &mut Node = &mut output;
     let mut open_tag: String = String::new();
     let mut open_content: String = String::new();
 
     // this closure adds a node to the ast
     let mut submit_node = |open_tag: &mut String, open_content: &mut String| {
-        if let Node::Branch { children, ..} = &mut output {
+        if let Node::Branch { children, ..} = parent {
             children.push(Node::Leaf{
                 tag: open_tag.clone(),
                 literal: open_content.clone()
@@ -187,18 +182,27 @@ fn ast(token_vec: Vec<Token>) -> Node {
             },
             Suffix => {
                 // breakdown possible suffixes
-                if token_vec[i].value == "empty_line" {
-                    match token_vec[i-1].token_type {
-                        Prefix => {},
-                        Suffix => {},
-                        Literal => {
-                            submit_node(&mut open_tag, &mut open_content);
+                match token_vec[i].value.as_str() {
+                    "empty_line" => {
+                        match token_vec[i-1].token_type {
+                            Prefix => {},
+                            Suffix => {},
+                            Literal => {
+                                submit_node(&mut open_tag, &mut open_content);
+                            }
                         }
-                    }
-                } else {
-                    // Modify node, then submit
-                    open_tag = token_vec[i].value.clone();
-                    submit_node(&mut open_tag, &mut open_content);                }
+                    },
+                    "h1" => {
+                        // Modify node, then submit
+                        open_tag = token_vec[i].value.clone();
+                        submit_node(&mut open_tag, &mut open_content);   
+                    },
+                    "table" => {
+                        // Change parent node
+                        
+                    },
+                    _ => {}
+                }
             },
             Literal => {
                 if open_tag == "" { open_tag = "p".to_string(); }
