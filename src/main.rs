@@ -1,6 +1,6 @@
+use md_parser::config::Config;
 use std::env;
 use std::process;
-use md_parser::config::Config;
 
 fn main() {
     let config = match Config::build(env::args()) {
@@ -12,7 +12,9 @@ fn main() {
     };
 
     match md_parser::run(config) {
-        Ok(()) => { process::exit(0); },
+        Ok(()) => {
+            process::exit(0);
+        }
         Err(e) => {
             println!("Parser error: {e}");
             process::exit(1);

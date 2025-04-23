@@ -1,6 +1,6 @@
 pub struct Config {
     pub md_path: String,
-    pub output_path: String
+    pub output_path: String,
 }
 
 impl Config {
@@ -15,12 +15,15 @@ impl Config {
 
         let output_path = match args.next() {
             Some(path) => path,
-            None => "output.html".to_string()
+            None => "output.html".to_string(),
         };
 
         // TODO: Error check arguments <md_path>, <output_path>
         // ...
 
-        Ok(Config { md_path, output_path })
+        Ok(Config {
+            md_path,
+            output_path,
+        })
     }
 }

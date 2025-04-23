@@ -1,16 +1,16 @@
 use std::error::Error;
 
+pub mod ast;
 pub mod config;
 pub mod lexer;
-pub mod ast;
 
+use ast::Node;
+use ast::Node::*;
+use ast::run_ast;
 use config::Config;
 use lexer::Token;
 use lexer::TokenType::*;
 use lexer::run_lexer;
-use ast::Node;
-use ast::Node::*;
-use ast::run_ast;
 
 pub fn run(config: Config) -> Result<(), Box<dyn Error>> {
     // LEXER
@@ -21,9 +21,15 @@ pub fn run(config: Config) -> Result<(), Box<dyn Error>> {
     println!("---------------------");
     for token in tokens.iter() {
         match token.token_type {
-            Prefix => { println!(" prefix - {}", token.value); }
-            Suffix => { println!(" suffix - {}", token.value); }
-            Literal => { println!("literal - {}", token.value); }
+            Prefix => {
+                println!(" prefix - {}", token.value);
+            }
+            Suffix => {
+                println!(" suffix - {}", token.value);
+            }
+            Literal => {
+                println!("literal - {}", token.value);
+            }
         }
     }
     println!("-=-=-=--=-=-=--=-=-=--=-=-=--=-=-=--=-=-=--=-=-=--=-=-=--=-=-=-");
@@ -31,19 +37,21 @@ pub fn run(config: Config) -> Result<(), Box<dyn Error>> {
     // AST
     let ast: Node = run_ast(tokens);
     match ast {
-        Branch{children, ..} => {
+        Branch { children, .. } => {
             for node in children.iter() {
                 match node {
-                    Branch{tag, ..} => { 
+                    Branch { tag, .. } => {
                         println!("<{}>...</{}>", tag, tag);
-                    },
-                    Leaf{tag, literal, ..} => { 
+                    }
+                    Leaf { tag, literal, .. } => {
                         println!("<{}>{}</{}>", tag, literal, tag);
                     }
                 }
             }
-        },
-        Leaf{..} => { println!("you shouldnt see this"); }
+        }
+        Leaf { .. } => {
+            println!("you shouldnt see this");
+        }
     }
 
     // WRITE
