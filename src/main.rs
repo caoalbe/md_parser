@@ -1,6 +1,6 @@
 use std::env;
 use std::process;
-use md_parser::Config;
+use md_parser::config::Config;
 
 fn main() {
     let config = match Config::build(env::args()) {
