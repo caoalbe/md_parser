@@ -39,9 +39,9 @@ pub fn run(config: Config) -> Result<(), Box<dyn Error>> {
     // AST
     let ast = run_ast(tokens);
     println!("COMPLETED - run_ast");
-    println!("{}", ast);
 
     // WRITE
+    println!("{}", ast);
 
     Ok(())
 }

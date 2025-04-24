@@ -81,7 +81,13 @@ impl Tree {
     }
 
     // Helper for the display trait.  This generates the string to print with the tab formatting
-    fn display_helper(&self, builder: &mut String, target: &Node, depth: usize, tab_size:usize) -> () {
+    fn display_helper(
+        &self,
+        builder: &mut String,
+        target: &Node,
+        depth: usize,
+        tab_size: usize,
+    ) -> () {
         builder.push_str(&" ".repeat(depth * tab_size));
         match &target.value {
             Content::Children(vec_node) => {
@@ -91,13 +97,12 @@ impl Tree {
                 }
                 builder.push_str(&" ".repeat(depth * tab_size));
                 builder.push_str(&format!("<{}>\n", target.tag));
-            },
+            }
             Content::Literal(text) => {
                 builder.push_str(&format!("<{}>{}</{}>\n", target.tag, text, target.tag));
-            },
+            }
         }
     }
-    
 }
 
 impl std::fmt::Display for Tree {
@@ -111,7 +116,7 @@ impl std::fmt::Display for Tree {
 pub fn run_ast(mut token_vec: Vec<Token>) -> Tree {
     let output: Tree = Tree::build();
 
-    if token_vec.is_empty(){
+    if token_vec.is_empty() {
         return output;
     }
 
