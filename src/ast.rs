@@ -80,7 +80,7 @@ impl Tree {
     }
 }
 
-pub fn run_ast(token_vec: Vec<Token>) -> Tree {
+pub fn run_ast(mut token_vec: Vec<Token>) -> Tree {
     let output: Tree = Tree::build();
 
     if token_vec.is_empty(){
@@ -90,18 +90,16 @@ pub fn run_ast(token_vec: Vec<Token>) -> Tree {
     let mut open_tag: String = String::new();
     let mut open_text: String = String::new();
 
-    // output.insert_leaf(&mut open_tag, &mut open_text);
-
     // prime first node
     match token_vec[0].token_type {
         Prefix => {
-            open_tag = token_vec[0].value.clone(); // modify node
+            open_tag = std::mem::take(&mut token_vec[0].value); // modify node
         }
         Suffix => {
             // throw an error
         }
         Literal => {
-            open_text = token_vec[0].value.clone(); // modify node
+            open_text = std::mem::take(&mut token_vec[0].value); // modify node
         }
     }
 
