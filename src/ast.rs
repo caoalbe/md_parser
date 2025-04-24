@@ -2,7 +2,7 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 use crate::lexer::Token;
-// use crate::lexer::TokenType::*;
+use crate::lexer::TokenType::*;
 
 pub enum Content {
     // TODO: i think we can remove the first Rc
@@ -39,11 +39,11 @@ impl Tree {
     }
 
     // Inserts a leaf, as a child of curr node
-    pub fn insert_leaf(&self, tag: String, literal: String) -> () {
+    pub fn insert_leaf(&self, tag: &mut String, literal: &mut String) -> () {
         let to_add: Rc<Node> = Rc::new(Node {
             parent: Some(Rc::clone(&self.curr)),
-            tag: tag,
-            value: Content::Literal(literal),
+            tag: std::mem::take(tag),
+            value: Content::Literal(std::mem::take(literal)),
         });
         if let Content::Children(lst) = &self.curr.value {
             lst.borrow_mut().push(to_add);
@@ -51,10 +51,10 @@ impl Tree {
     }
 
     // Inserts a branch, as a child of curr node
-    pub fn insert_branch(&mut self, tag: String) -> () {
+    pub fn insert_branch(&mut self, tag: &mut String) -> () {
         let to_add: Rc<Node> = Rc::new(Node {
             parent: Some(Rc::clone(&self.curr)),
-            tag: tag,
+            tag: std::mem::take(tag),
             value: Content::Children(Rc::new(RefCell::new(vec![]))),
         });
         if let Content::Children(lst) = &self.curr.value {
@@ -81,35 +81,31 @@ impl Tree {
 }
 
 pub fn run_ast(token_vec: Vec<Token>) -> Tree {
-    let mut output: Tree = Tree::build();
+    let output: Tree = Tree::build();
 
-    if token_vec.len() == 0 {
+    if token_vec.is_empty(){
         return output;
     }
 
-    // output.insert_leaf("h1".to_string(), "lorem".to_string());
-    output.insert_branch("table".to_string());
-    output.debug_curr_tag();
-    output.curr_up();
-    output.debug_curr_tag();
+    let mut open_tag: String = String::new();
+    let mut open_text: String = String::new();
 
-    // let mut open_tag: String = String::new();
-    // let mut open_content: String = String::new();
+    // output.insert_leaf(&mut open_tag, &mut open_text);
 
     // prime first node
-    // match token_vec[0].token_type {
-    //     Prefix => {
-    //         open_tag = token_vec[0].value.clone(); // modify node
-    //     }
-    //     Suffix => {
-    //         // throw an error
-    //     }
-    //     Literal => {
-    //         open_content = token_vec[0].value.clone(); // modify node
-    //     }
-    // }
+    match token_vec[0].token_type {
+        Prefix => {
+            open_tag = token_vec[0].value.clone(); // modify node
+        }
+        Suffix => {
+            // throw an error
+        }
+        Literal => {
+            open_text = token_vec[0].value.clone(); // modify node
+        }
+    }
 
-    // // TODO: fix performance with .clone overusage
+    // TODO: fix performance with .clone overusage
     // let mut i = 1;
     // while i < token_vec.len() {
     //     match token_vec[i].token_type {
