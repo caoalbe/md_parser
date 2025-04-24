@@ -103,61 +103,60 @@ pub fn run_ast(mut token_vec: Vec<Token>) -> Tree {
         }
     }
 
-    // TODO: fix performance with .clone overusage
-    // let mut i = 1;
-    // while i < token_vec.len() {
-    //     match token_vec[i].token_type {
-    //         Prefix => {
-    //             // Submit node, then modify upcoming node
-    //             submit_node(&mut open_tag, &mut open_content);
-    //             open_tag = token_vec[i].value.clone();
-    //         }
-    //         Suffix => {
-    //             // breakdown possible suffixes
-    //             match token_vec[i].value.as_str() {
-    //                 "empty_line" => match token_vec[i - 1].token_type {
-    //                     Prefix => {}
-    //                     Suffix => {}
-    //                     Literal => {
-    //                         submit_node(&mut open_tag, &mut open_content);
-    //                     }
-    //                 },
-    //                 "h1" => {
-    //                     // Modify node, then submit
-    //                     open_tag = token_vec[i].value.clone();
-    //                     submit_node(&mut open_tag, &mut open_content);
-    //                 }
-    //                 "table" => {
-    //                     // Change parent node
-    //                 }
-    //                 _ => {}
-    //             }
-    //         }
-    //         Literal => {
-    //             if open_tag == "" {
-    //                 open_tag = "p".to_string();
-    //             }
-    //             match token_vec[i - 1].token_type {
-    //                 Prefix => {
-    //                     // Modify node, then submit
-    //                     open_content = token_vec[i].value.clone();
-    //                     submit_node(&mut open_tag, &mut open_content);
-    //                 }
-    //                 Suffix => {
-    //                     // Submit, then modify node
-    //                     open_content = token_vec[i].value.clone();
-    //                 }
-    //                 Literal => {
-    //                     // Submit, then modify node
-    //                     submit_node(&mut open_tag, &mut open_content);
-    //                     open_content = token_vec[i].value.clone();
-    //                 }
-    //             }
-    //         }
-    //     }
+    let mut i = 1;
+    while i < token_vec.len() {
+        match token_vec[i].token_type {
+            Prefix => {
+                // Submit node, then modify upcoming node
+                output.insert_leaf(&mut open_tag, &mut open_text);
+                open_tag = std::mem::take(&mut token_vec[i].value);
+            }
+            Suffix => {
+                // breakdown possible suffixes
+                match token_vec[i].value.as_str() {
+                    "empty_line" => match token_vec[i - 1].token_type {
+                        Prefix => {}
+                        Suffix => {}
+                        Literal => {
+                            output.insert_leaf(&mut open_tag, &mut open_text);
+                        }
+                    },
+                    "h1" => {
+                        // Modify node, then submit
+                        open_tag = std::mem::take(&mut token_vec[i].value);
+                        output.insert_leaf(&mut open_tag, &mut open_text);
+                    }
+                    "table" => {
+                        // Change parent node
+                    }
+                    _ => {}
+                }
+            }
+            Literal => {
+                if open_tag == "" {
+                    open_tag = "p".to_string();
+                }
+                match token_vec[i - 1].token_type {
+                    Prefix => {
+                        // Modify node, then submit
+                        open_text = std::mem::take(&mut token_vec[i].value);
+                        output.insert_leaf(&mut open_tag, &mut open_text);
+                    }
+                    Suffix => {
+                        // Submit, then modify node
+                        open_text = std::mem::take(&mut token_vec[i].value);
+                    }
+                    Literal => {
+                        // Submit, then modify node
+                        output.insert_leaf(&mut open_tag, &mut open_text);
+                        open_text = std::mem::take(&mut token_vec[i].value);
+                    }
+                }
+            }
+        }
 
-    //     i = i + 1;
-    // }
+        i = i + 1;
+    }
 
     output
 }
