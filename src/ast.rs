@@ -1,4 +1,5 @@
 use std::cell::RefCell;
+use std::fmt::format;
 use std::rc::Rc;
 
 use crate::lexer::Token;
@@ -77,6 +78,33 @@ impl Tree {
 
     pub fn debug_curr_tag(&self) -> () {
         println!("curr tag: {}", self.curr.tag);
+    }
+
+    // Helper for the display trait.  This generates the string to print with the tab formatting
+    fn display_helper(&self, builder: &mut String, target: &Node, depth: usize, tab_size:usize) -> () {
+        builder.push_str(&" ".repeat(depth * tab_size));
+        match &target.value {
+            Content::Children(vec_node) => {
+                builder.push_str(&format!("<{}>\n", target.tag));
+                for node in vec_node.borrow().iter() {
+                    self.display_helper(builder, node, depth + 1, tab_size);
+                }
+                builder.push_str(&" ".repeat(depth * tab_size));
+                builder.push_str(&format!("<{}>\n", target.tag));
+            },
+            Content::Literal(text) => {
+                builder.push_str(&format!("<{}>{}</{}>\n", target.tag, text, target.tag));
+            },
+        }
+    }
+    
+}
+
+impl std::fmt::Display for Tree {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut output: String = String::new();
+        self.display_helper(&mut output, &self.root, 0, 4);
+        write!(f, "{}", output)
     }
 }
 

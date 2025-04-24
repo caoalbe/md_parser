@@ -39,62 +39,7 @@ pub fn run(config: Config) -> Result<(), Box<dyn Error>> {
     // AST
     let ast = run_ast(tokens);
     println!("COMPLETED - run_ast");
-
-    println!("<{}>", ast.root.tag);
-
-    // match &ast.root.value {
-    //     Content::Children(vec_of_nodes) => {
-    //         println!("length: {}", vec_of_nodes.borrow().len());
-    //         for node in vec_of_nodes.borrow().iter() {
-    //             println!("wf");
-    //         }
-    //     },
-    //     _ => {}
-    // }
-
-    println!(
-        "    <{}>...<{}>",
-        match &ast.root.value {
-            Content::Children(vec_of_nodes) => {
-                if vec_of_nodes.borrow().len() > 0 {
-                    vec_of_nodes.borrow()[0].tag.clone()
-                } else {
-                    "lmao".to_string()
-                }
-            }
-            _ => "lmao".to_string(),
-        },
-        match &ast.root.value {
-            Content::Children(vec_of_nodes) => {
-                if vec_of_nodes.borrow().len() > 0 {
-                    vec_of_nodes.borrow()[0].tag.clone()
-                } else {
-                    "lmao".to_string()
-                }
-            }
-            _ => "lmao".to_string(),
-        },
-    );
-    println!("</{}>", ast.root.tag);
-
-    // println!("{:#?}", _ast);
-    // match ast {
-    //     Branch { children, .. } => {
-    //         for node in children.iter() {
-    //             match node {
-    //                 Branch { tag, .. } => {
-    //                     println!("<{}>...</{}>", tag, tag);
-    //                 }
-    //                 Leaf { tag, literal, .. } => {
-    //                     println!("<{}>{}</{}>", tag, literal, tag);
-    //                 }
-    //             }
-    //         }
-    //     }
-    //     Leaf { .. } => {
-    //         println!("you shouldnt see this");
-    //     }
-    // }
+    println!("{}", ast);
 
     // WRITE
 
