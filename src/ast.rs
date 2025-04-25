@@ -14,6 +14,7 @@ pub struct Node {
     parent: Option<Rc<RefCell<Node>>>,
     pub tag: String,
     pub value: Content,
+    is_leaf: bool,
 }
 
 pub struct Tree {
@@ -37,6 +38,7 @@ impl Tree {
             parent: None,
             tag: "html".to_string(),
             value: Children(vec![]),
+            is_leaf: false,
         };
 
         let ptr: Rc<RefCell<Node>> = Rc::new(RefCell::new(root_node));
@@ -55,6 +57,7 @@ impl Tree {
             parent: Some(Rc::clone(&self.curr)),
             tag: "".to_string(),
             value: Inline(std::mem::take(literal)),
+            is_leaf: true,
         }));
         if let Children(lst) = &mut self.curr.borrow_mut().value {
             lst.push(to_add);
@@ -70,6 +73,7 @@ impl Tree {
             parent: Some(Rc::clone(&self.curr)),
             tag: std::mem::take(tag),
             value: Children(vec![]),
+            is_leaf: false,
         }));
         if let Children(lst) = &mut self.curr.borrow_mut().value {
             lst.push(Rc::clone(&to_add));
@@ -104,15 +108,21 @@ impl Tree {
     ) -> () {
         builder.push_str(&" ".repeat(depth * tab_size));
         match &target.value {
-            // TODO: If vec_node has literal as only child; then print succinctly in one line,
-            // i.e. <h1>header1</h1>
             Children(vec_node) => {
-                builder.push_str(&format!("<{}>\n", target.tag));
-                for node in vec_node {
-                    self.display_helper(builder, &node.borrow(), depth + 1, tab_size);
+                if vec_node.len() == 1 && vec_node[0].borrow().is_leaf {
+                    // Single, leaf child.  Print all in one line
+                    if let Inline(child_text) = &vec_node[0].borrow().value {
+                        builder.push_str(&format!("<{}>{}</{}>\n", target.tag, child_text, target.tag));
+                    }
+                } else {
+                    // Multiple children
+                    builder.push_str(&format!("<{}>\n", target.tag));
+                    for node in vec_node {
+                        self.display_helper(builder, &node.borrow(), depth + 1, tab_size);
+                    }
+                    builder.push_str(&" ".repeat(depth * tab_size));
+                    builder.push_str(&format!("</{}>\n", target.tag));
                 }
-                builder.push_str(&" ".repeat(depth * tab_size));
-                builder.push_str(&format!("</{}>\n", target.tag));
             }
             Inline(text) => {
                 builder.push_str(&format!("{}\n", text));
