@@ -1,5 +1,4 @@
 use std::cell::RefCell;
-use std::fmt::format;
 use std::rc::Rc;
 
 use crate::lexer::Token;
@@ -65,19 +64,50 @@ impl Tree {
         self.curr = Rc::clone(&to_add);
     }
 
+    // Moves sibling node as a child of curr
+    // TODO: make this function more idiomatic
+    pub fn adopt_sibling(&mut self) {
+        let maybe_sibling: Option<Rc<Node>> = match &self.curr.parent {
+            Some(node) => {
+                match &node.value {
+                    Content::Children(vec_of_nodes) => {
+                        let vec_size: usize = vec_of_nodes.borrow().len();
+                        if vec_size < 2 {
+                            return;
+                        }
+                        Some(Rc::clone(&vec_of_nodes.borrow()[vec_size - 2])) // second last node
+                    }
+                    _ => None,
+                }
+            }
+            _ => None,
+        };
+
+        match maybe_sibling {
+            None => {
+                return;
+            }
+            Some(sibling) => {
+                match &self.curr.value {
+                    Content::Children(vec_of_nodes) => {
+                        vec_of_nodes.borrow_mut().push(sibling);
+                    }
+                    // Content::Literal(text) => {}
+                    _ => {}
+                }
+            }
+        }
+    }
+
+    pub fn get_curr_tag(&self) -> &str {
+        return &self.curr.tag.as_str();
+    }
+
     // Moves curr pointer up to its parent
     fn curr_up(&mut self) -> () {
         if let Some(parent) = &self.curr.parent {
             self.curr = Rc::clone(&parent);
         }
-    }
-
-    pub fn debug_count(&self) -> usize {
-        Rc::strong_count(&self.curr)
-    }
-
-    pub fn debug_curr_tag(&self) -> () {
-        println!("curr tag: {}", self.curr.tag);
     }
 
     // Helper for the display trait.  This generates the string to print with the tab formatting
@@ -114,7 +144,7 @@ impl std::fmt::Display for Tree {
 }
 
 pub fn run_ast(mut token_vec: Vec<Token>) -> Tree {
-    let output: Tree = Tree::build();
+    let mut output: Tree = Tree::build();
 
     if token_vec.is_empty() {
         return output;
@@ -147,13 +177,20 @@ pub fn run_ast(mut token_vec: Vec<Token>) -> Tree {
             Suffix => {
                 // breakdown possible suffixes
                 match token_vec[i].value.as_str() {
-                    "empty_line" => match token_vec[i - 1].token_type {
-                        Prefix => {}
-                        Suffix => {}
-                        Literal => {
-                            output.insert_leaf(&mut open_tag, &mut open_text);
+                    "empty_line" => {
+                        // if curr node points to table, then climb
+                        if output.get_curr_tag() == "table" {
+                            output.curr_up();
+                        } else {
+                            match token_vec[i - 1].token_type {
+                                Prefix => {}
+                                Suffix => {}
+                                Literal => {
+                                    output.insert_leaf(&mut open_tag, &mut open_text);
+                                }
+                            }
                         }
-                    },
+                    }
                     "h1" => {
                         // Modify node, then submit
                         open_tag = std::mem::take(&mut token_vec[i].value);
@@ -161,6 +198,11 @@ pub fn run_ast(mut token_vec: Vec<Token>) -> Tree {
                     }
                     "table" => {
                         // Change parent node
+
+                        open_tag = std::mem::take(&mut token_vec[i].value);
+                        output.insert_branch(&mut open_tag);
+                        output.insert_leaf(&mut "th".to_string(), &mut open_text);
+                        // output.adopt_sibling();
                     }
                     _ => {}
                 }
