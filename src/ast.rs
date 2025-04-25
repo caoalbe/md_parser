@@ -3,23 +3,31 @@ use std::rc::Rc;
 
 use crate::lexer::Token;
 use crate::lexer::TokenType::*;
+use Content::*;
 
 pub enum Content {
-    // TODO: i think we can remove the first Rc
-    Children(Rc<RefCell<Vec<Rc<Node>>>>),
-    Literal(String),
+    Children(Vec<Rc<RefCell<Node>>>),
+    Inline(String),
 }
 
 pub struct Node {
-    parent: Option<Rc<Node>>,
+    parent: Option<Rc<RefCell<Node>>>,
     pub tag: String,
     pub value: Content,
 }
 
 pub struct Tree {
-    pub root: Rc<Node>,
-    curr: Rc<Node>,
-    // size: usize,
+    pub root: Rc<RefCell<Node>>,
+    curr: Rc<RefCell<Node>>,
+}
+
+impl Node {
+    pub fn get_tag(&self) -> &str {
+        return self.tag.as_str();
+    }
+    pub fn set_tag(&mut self, new_tag: &mut String) -> () {
+        self.tag = std::mem::take(new_tag);
+    }
 }
 
 impl Tree {
@@ -28,10 +36,10 @@ impl Tree {
         let root_node: Node = Node {
             parent: None,
             tag: "html".to_string(),
-            value: Content::Children(Rc::new(RefCell::new(vec![]))),
+            value: Children(vec![]),
         };
 
-        let ptr: Rc<Node> = Rc::new(root_node);
+        let ptr: Rc<RefCell<Node>> = Rc::new(RefCell::new(root_node));
         Tree {
             root: Rc::clone(&ptr),
             curr: Rc::clone(&ptr),
@@ -43,13 +51,13 @@ impl Tree {
         if literal == "" {
             return;
         }
-        let to_add: Rc<Node> = Rc::new(Node {
+        let to_add: Rc<RefCell<Node>> = Rc::new(RefCell::new(Node {
             parent: Some(Rc::clone(&self.curr)),
             tag: "".to_string(),
-            value: Content::Literal(std::mem::take(literal)),
-        });
-        if let Content::Children(lst) = &self.curr.value {
-            lst.borrow_mut().push(to_add);
+            value: Inline(std::mem::take(literal)),
+        }));
+        if let Children(lst) = &mut self.curr.borrow_mut().value {
+            lst.push(to_add);
         }
     }
 
@@ -58,69 +66,32 @@ impl Tree {
         if tag == "" {
             return;
         }
-        let to_add: Rc<Node> = Rc::new(Node {
+        let to_add: Rc<RefCell<Node>> = Rc::new(RefCell::new(Node {
             parent: Some(Rc::clone(&self.curr)),
             tag: std::mem::take(tag),
-            value: Content::Children(Rc::new(RefCell::new(vec![]))),
-        });
-        if let Content::Children(lst) = &self.curr.value {
-            lst.borrow_mut().push(Rc::clone(&to_add));
+            value: Children(vec![]),
+        }));
+        if let Children(lst) = &mut self.curr.borrow_mut().value {
+            lst.push(Rc::clone(&to_add));
         }
 
         self.curr = Rc::clone(&to_add);
     }
 
-    // Moves sibling node as a child of curr
-    // TODO: make this function more idiomatic
-    pub fn adopt_sibling(&mut self) {
-        let maybe_sibling: Option<Rc<Node>> = match &self.curr.parent {
-            Some(node) => {
-                match &node.value {
-                    Content::Children(vec_of_nodes) => {
-                        let vec_size: usize = vec_of_nodes.borrow().len();
-                        if vec_size < 2 {
-                            return;
-                        }
-                        Some(Rc::clone(&vec_of_nodes.borrow()[vec_size - 2])) // second last node
-                    }
-                    _ => None,
-                }
-            }
-            _ => None,
-        };
-
-        match maybe_sibling {
-            None => {
-                return;
-            }
-            Some(sibling) => {
-                match &self.curr.value {
-                    Content::Children(vec_of_nodes) => {
-                        vec_of_nodes.borrow_mut().push(sibling);
-                    }
-                    // Content::Literal(text) => {}
-                    _ => {}
-                }
-            }
-        }
-    }
-
-    pub fn get_curr_tag(&self) -> &str {
-        return &self.curr.tag.as_str();
-    }
-
-    pub fn get_parent_tag(&self) -> &str {
-        return match &self.curr.parent {
-            Some(parent) => parent.tag.as_str(),
-            None => "",
-        };
-    }
-
     // Moves curr pointer up to its parent
     fn curr_up(&mut self) -> () {
-        if let Some(parent) = &self.curr.parent {
-            self.curr = Rc::clone(&parent);
+        let maybe_parent = self.curr.borrow().parent.clone();
+        if let Some(parent) = maybe_parent {
+            self.curr = parent
         }
+    }
+
+    pub fn get_curr_tag(&self) -> String {
+        self.curr.borrow().get_tag().to_string()
+    }
+
+    pub fn set_curr_tag(&mut self, new_tag: &mut String) -> () {
+        self.curr.borrow_mut().set_tag(new_tag);
     }
 
     // Helper for the display trait.  This generates the string to print with the tab formatting
@@ -135,15 +106,15 @@ impl Tree {
         match &target.value {
             // TODO: If vec_node has literal as only child; then print succinctly in one line,
             // i.e. <h1>header1</h1>
-            Content::Children(vec_node) => {
+            Children(vec_node) => {
                 builder.push_str(&format!("<{}>\n", target.tag));
-                for node in vec_node.borrow().iter() {
-                    self.display_helper(builder, node, depth + 1, tab_size);
+                for node in vec_node {
+                    self.display_helper(builder, &node.borrow(), depth + 1, tab_size);
                 }
                 builder.push_str(&" ".repeat(depth * tab_size));
                 builder.push_str(&format!("</{}>\n", target.tag));
             }
-            Content::Literal(text) => {
+            Inline(text) => {
                 builder.push_str(&format!("{}\n", text));
             }
         }
@@ -153,7 +124,7 @@ impl Tree {
 impl std::fmt::Display for Tree {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let mut output: String = String::new();
-        self.display_helper(&mut output, &self.root, 0, 4);
+        self.display_helper(&mut output, &self.root.borrow(), 0, 4);
         write!(f, "{}", output)
     }
 }
@@ -181,6 +152,8 @@ pub fn run_ast(mut token_vec: Vec<Token>) -> Tree {
         }
     }
 
+    // i think we can do everything just in time;
+    // since the ast is split between tags and literals
     let mut i = 1;
     while i < token_vec.len() {
         match token_vec[i].token_type {
