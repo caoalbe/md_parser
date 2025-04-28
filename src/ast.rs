@@ -120,10 +120,6 @@ impl Tree {
         self.curr.borrow_mut().set_tag(new_tag);
     }
 
-    // pub fn get_curr_value(&self) -> Content {
-    //     self.curr.borrow()
-    // }
-
     // Helper for the display trait.  This generates the string to print with the tab formatting
     fn display_helper(
         &self,
@@ -168,29 +164,24 @@ impl std::fmt::Display for Tree {
     }
 }
 
-pub fn run_ast(mut token_vec: Vec<Token>) -> Tree {
+pub fn run_ast(token_vec: Vec<Token>) -> Tree {
     let mut output: Tree = Tree::build();
-
     if token_vec.is_empty() {
         return output;
     }
 
-    let mut open_tag: String = String::new();
-    let mut open_text: String = String::new();
-
-    let mut i = 0; 
-    while i < token_vec.len() {
-        match token_vec[i].token_type {
+    let mut open_tag: String;
+    let mut open_text: String;
+    for mut token in token_vec {
+        match token.token_type {
             Prefix => {
                 // Create branch node with given tag
-                open_tag = std::mem::take(&mut token_vec[i].value);
+                open_tag = std::mem::take(&mut token.value);
                 output.insert_branch(&mut open_tag);
             }
             Suffix => {
-                // breakdown possible suffixes
-                match token_vec[i].value.as_str() {
+                match token.value.as_str() {
                     "empty_line" => {
-                        // if curr node points to table, then exit it
                         if output.get_curr_tag() == "table" {
                             output.curr_up();
                         }
@@ -198,10 +189,9 @@ pub fn run_ast(mut token_vec: Vec<Token>) -> Tree {
                     "h1" => {
                         // Modify node, then submit
                         let prev: Rc<RefCell<Node>> = output.remove_curr().expect("");
-                        open_tag = std::mem::take(&mut token_vec[i].value);
+                        open_tag = std::mem::take(&mut token.value);
                         output.insert_branch(&mut open_tag);
                         output.insert_node(prev);
-
                         output.curr_up();
                         output.curr_up();
                     }
@@ -210,7 +200,7 @@ pub fn run_ast(mut token_vec: Vec<Token>) -> Tree {
                         let prev: Rc<RefCell<Node>> = output.remove_curr().expect("");
                         let token_headers: Option<String> = prev.borrow().get_literal();
 
-                        open_tag = std::mem::take(&mut token_vec[i].value);
+                        open_tag = std::mem::take(&mut token.value);
                         output.insert_branch(&mut open_tag);
                         output.insert_branch(&mut "tr".to_string());
 
@@ -228,7 +218,7 @@ pub fn run_ast(mut token_vec: Vec<Token>) -> Tree {
             }
             Literal => {
                 if output.get_curr_tag() == "table" {
-                    open_text = std::mem::take(&mut token_vec[i].value);
+                    open_text = std::mem::take(&mut token.value);
                     output.insert_branch(&mut "tr".to_string());
                     for col in open_text.split('|').filter(|s| !s.is_empty()) {
                         output.insert_branch(&mut "td".to_string());
@@ -238,14 +228,12 @@ pub fn run_ast(mut token_vec: Vec<Token>) -> Tree {
                     output.curr_up();
                 } else {
                     // Create leaf node with given text
-                    open_text = std::mem::take(&mut token_vec[i].value);
+                    open_text = std::mem::take(&mut token.value);
                     output.insert_leaf(&mut open_text);
                     output.curr_up();
                 }
             }
         }
-
-        i = i + 1;
     }
 
     output
