@@ -29,6 +29,13 @@ impl Node {
     pub fn set_tag(&mut self, new_tag: &mut String) -> () {
         self.tag = std::mem::take(new_tag);
     }
+
+    pub fn get_literal(&self) -> Option<String> {
+        match &self.value {
+            Inline(text) => Some(text.clone()),
+            _ => None,
+        }
+    }
 }
 
 impl Tree {
@@ -50,9 +57,6 @@ impl Tree {
 
     // Inserts a leaf, as a child of curr node
     pub fn insert_leaf(&self, literal: &mut String) -> () {
-        if literal == "" {
-            return;
-        }
         let to_add: Rc<RefCell<Node>> = Rc::new(RefCell::new(Node {
             parent: Some(Rc::clone(&self.curr)),
             tag: "".to_string(),
@@ -66,9 +70,6 @@ impl Tree {
 
     // Inserts a branch, as a child of curr node
     pub fn insert_branch(&mut self, tag: &mut String) -> () {
-        if tag == "" {
-            return;
-        }
         let to_add: Rc<RefCell<Node>> = Rc::new(RefCell::new(Node {
             parent: Some(Rc::clone(&self.curr)),
             tag: std::mem::take(tag),
@@ -82,11 +83,32 @@ impl Tree {
         self.curr = Rc::clone(&to_add);
     }
 
+    pub fn insert_node(&mut self, node: Rc<RefCell<Node>>) -> () {
+        node.borrow_mut().parent = Some(Rc::clone(&self.curr));
+
+        if let Children(lst) = &mut self.curr.borrow_mut().value {
+            lst.push(Rc::clone(&node));
+        }
+
+        if !self.curr.borrow().is_leaf {
+            self.curr = Rc::clone(&node);
+        }
+    }
+
     // Moves curr pointer up to its parent
     fn curr_up(&mut self) -> () {
         let maybe_parent = self.curr.borrow().parent.clone();
         if let Some(parent) = maybe_parent {
             self.curr = parent
+        }
+    }
+
+    // removes curr pointer; assuming that its the last one
+    fn remove_curr(&mut self) -> Option<Rc<RefCell<Node>>> {
+        let mut borrowed = self.curr.borrow_mut();
+        match &mut borrowed.value {
+            Children(vec_node) => vec_node.pop(),
+            Inline(_) => None,
         }
     }
 
@@ -97,6 +119,10 @@ impl Tree {
     pub fn set_curr_tag(&mut self, new_tag: &mut String) -> () {
         self.curr.borrow_mut().set_tag(new_tag);
     }
+
+    // pub fn get_curr_value(&self) -> Content {
+    //     self.curr.borrow()
+    // }
 
     // Helper for the display trait.  This generates the string to print with the tab formatting
     fn display_helper(
@@ -112,7 +138,10 @@ impl Tree {
                 if vec_node.len() == 1 && vec_node[0].borrow().is_leaf {
                     // Single, leaf child.  Print all in one line
                     if let Inline(child_text) = &vec_node[0].borrow().value {
-                        builder.push_str(&format!("<{}>{}</{}>\n", target.tag, child_text, target.tag));
+                        builder.push_str(&format!(
+                            "<{}>{}</{}>\n",
+                            target.tag, child_text, target.tag
+                        ));
                     }
                 } else {
                     // Multiple children
@@ -149,30 +178,13 @@ pub fn run_ast(mut token_vec: Vec<Token>) -> Tree {
     let mut open_tag: String = String::new();
     let mut open_text: String = String::new();
 
-    // prime first node
-    match token_vec[0].token_type {
-        Prefix => {
-            open_tag = std::mem::take(&mut token_vec[0].value); // modify node
-        }
-        Suffix => {
-            // throw an error
-        }
-        Literal => {
-            open_text = std::mem::take(&mut token_vec[0].value); // modify node
-        }
-    }
-
-    // i think we can do everything just in time;
-    // since the ast is split between tags and literals
-    let mut i = 1;
+    let mut i = 0; 
     while i < token_vec.len() {
         match token_vec[i].token_type {
             Prefix => {
-                // Submit node, then modify upcoming node
-                output.insert_branch(&mut open_tag);
-                output.insert_leaf(&mut open_text);
-                output.curr_up();
+                // Create branch node with given tag
                 open_tag = std::mem::take(&mut token_vec[i].value);
+                output.insert_branch(&mut open_tag);
             }
             Suffix => {
                 // breakdown possible suffixes
@@ -181,40 +193,35 @@ pub fn run_ast(mut token_vec: Vec<Token>) -> Tree {
                         // if curr node points to table, then exit it
                         if output.get_curr_tag() == "table" {
                             output.curr_up();
-                        } else {
-                            match token_vec[i - 1].token_type {
-                                Prefix => {}
-                                Suffix => {}
-                                Literal => {
-                                    // if open_text != "" {
-                                    output.insert_leaf(&mut open_text);
-
-                                    // }
-                                }
-                            }
                         }
                     }
                     "h1" => {
                         // Modify node, then submit
+                        let prev: Rc<RefCell<Node>> = output.remove_curr().expect("");
                         open_tag = std::mem::take(&mut token_vec[i].value);
                         output.insert_branch(&mut open_tag);
-                        output.insert_leaf(&mut open_text);
+                        output.insert_node(prev);
+
+                        output.curr_up();
                         output.curr_up();
                     }
                     "table" => {
                         // Change parent node
+                        let prev: Rc<RefCell<Node>> = output.remove_curr().expect("");
+                        let token_headers: Option<String> = prev.borrow().get_literal();
+
                         open_tag = std::mem::take(&mut token_vec[i].value);
                         output.insert_branch(&mut open_tag);
                         output.insert_branch(&mut "tr".to_string());
 
-                        for col in open_text.split('|').filter(|s| !s.is_empty()) {
-                            output.insert_branch(&mut "th".to_string());
-                            output.insert_leaf(&mut col.to_string());
-                            output.curr_up();
+                        if let Some(text) = token_headers {
+                            for col in text.split('|').filter(|s| !s.is_empty()) {
+                                output.insert_branch(&mut "th".to_string());
+                                output.insert_leaf(&mut col.to_string());
+                                output.curr_up();
+                            }
                         }
-
                         output.curr_up();
-                        // output.adopt_sibling();
                     }
                     _ => {}
                 }
@@ -230,26 +237,10 @@ pub fn run_ast(mut token_vec: Vec<Token>) -> Tree {
                     }
                     output.curr_up();
                 } else {
-                    match token_vec[i - 1].token_type {
-                        Prefix => {
-                            // Modify node, then submit
-                            open_text = std::mem::take(&mut token_vec[i].value);
-                            output.insert_branch(&mut open_tag);
-                            output.insert_leaf(&mut open_text);
-                            output.curr_up();
-                        }
-                        Suffix => {
-                            // Modify node
-                            open_text = std::mem::take(&mut token_vec[i].value);
-                        }
-                        Literal => {
-                            // Submit, then modify node
-                            // output.insert_branch(&mut open_tag);
-                            output.insert_leaf(&mut open_text);
-                            // output.curr_up();
-                            open_text = std::mem::take(&mut token_vec[i].value);
-                        }
-                    }
+                    // Create leaf node with given text
+                    open_text = std::mem::take(&mut token_vec[i].value);
+                    output.insert_leaf(&mut open_text);
+                    output.curr_up();
                 }
             }
         }
