@@ -28,7 +28,7 @@ pub fn run_lexer(config: &Config) -> Result<Vec<Token>, Box<dyn Error>> {
     for line in contents.lines() {
         let words: Vec<&str> = line.split(" ").collect();
 
-        if words.len() < 2 {
+        if words.len() <= 1 {
             if line == "" {
                 output.push(Token {
                     token_type: Suffix,
@@ -58,9 +58,11 @@ pub fn run_lexer(config: &Config) -> Result<Vec<Token>, Box<dyn Error>> {
         } else {
             let prefix: &str = words[0];
             if prefix.chars().all(|c| c == '#') {
+                let mut tag: String = String::from("h");
+                tag.push_str(prefix.len().to_string().as_str());  
                 output.push(Token {
                     token_type: Prefix,
-                    value: String::from("h1"),
+                    value: tag,
                 }); // TODO: should not always be h1
                 output.push(Token {
                     token_type: Literal,

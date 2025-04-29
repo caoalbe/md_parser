@@ -186,7 +186,7 @@ pub fn run_ast(token_vec: Vec<Token>) -> Tree {
                             output.curr_up();
                         }
                     }
-                    "h1" => {
+                    "h1" | "h2" | "h3" |"h4" | "h5" |"h6" => {
                         // Modify node, then submit
                         let prev: Rc<RefCell<Node>> = output.remove_curr().expect("");
                         open_tag = std::mem::take(&mut token.value);
