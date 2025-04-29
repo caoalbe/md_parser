@@ -103,6 +103,18 @@ impl Tree {
         }
     }
 
+    // Moves curr to its last child
+    fn curr_last(&mut self) -> () {
+        let current_node = self.curr.clone();
+        let node_borrow = current_node.borrow();
+
+        if let Children(vec_nodes) = &node_borrow.value {
+            if let Some(last_child) = vec_nodes.last() {
+                self.curr = Rc::clone(last_child);
+            }
+        }
+    }
+
     // removes curr pointer; assuming that its the last one
     fn remove_curr(&mut self) -> Option<Rc<RefCell<Node>>> {
         let mut borrowed = self.curr.borrow_mut();
@@ -182,8 +194,21 @@ pub fn run_ast(token_vec: Vec<Token>) -> Tree {
             Suffix => {
                 match token.value.as_str() {
                     "empty_line" => {
-                        if output.get_curr_tag() == "table" {
-                            output.curr_up();
+                        match output.get_curr_tag().as_str() {
+                            "table" => {
+                                output.curr_up();
+                            }
+                            _ => {
+                                output.curr_last();
+                                if output.curr.borrow().tag == "" {
+                                    output.curr_up();
+                                    let leaf: Rc<RefCell<Node>> = output.remove_curr().expect("");
+                                    output.insert_branch(&mut "p".to_string());
+                                    output.insert_node(leaf);
+                                    output.curr_up();
+                                }
+                                output.curr_up();
+                            }
                         }
                     }
                     "h1" | "h2" | "h3" |"h4" | "h5" |"h6" => {

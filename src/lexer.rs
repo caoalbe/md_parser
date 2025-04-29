@@ -4,9 +4,6 @@ use std::fs;
 use crate::Config;
 use TokenType::*;
 
-// TODO: create an enum for each token
-// smth like Prefix(h1) for token type
-
 pub enum TokenType {
     Prefix,
     Suffix,
@@ -26,7 +23,7 @@ pub fn run_lexer(config: &Config) -> Result<Vec<Token>, Box<dyn Error>> {
 
     let mut output: Vec<Token> = Vec::new();
     for line in contents.lines() {
-        let words: Vec<&str> = line.split(" ").collect();
+        let words: Vec<&str> = line.trim().split(" ").collect();
 
         if words.len() <= 1 {
             if line == "" {
@@ -38,7 +35,7 @@ pub fn run_lexer(config: &Config) -> Result<Vec<Token>, Box<dyn Error>> {
                 output.push(Token {
                     token_type: Suffix,
                     value: String::from("h1"),
-                }) // modify
+                })
             } else if line.chars().all(|c| c == '-') {
                 output.push(Token {
                     token_type: Suffix,
@@ -63,7 +60,7 @@ pub fn run_lexer(config: &Config) -> Result<Vec<Token>, Box<dyn Error>> {
                 output.push(Token {
                     token_type: Prefix,
                     value: tag,
-                }); // TODO: should not always be h1
+                });
                 output.push(Token {
                     token_type: Literal,
                     value: String::from(&line[prefix.len()..]),
