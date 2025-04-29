@@ -56,16 +56,18 @@ impl Tree {
     }
 
     // Inserts a leaf, as a child of curr node
-    pub fn insert_leaf(&self, literal: &mut String) -> () {
+    pub fn insert_leaf(&mut self, tag: &mut String, literal: &mut String) -> () {
         let to_add: Rc<RefCell<Node>> = Rc::new(RefCell::new(Node {
             parent: Some(Rc::clone(&self.curr)),
-            tag: "".to_string(),
+            tag: std::mem::take(tag),
             value: Inline(std::mem::take(literal)),
             is_leaf: true,
         }));
         if let Children(lst) = &mut self.curr.borrow_mut().value {
-            lst.push(to_add);
+            lst.push(Rc::clone(&to_add));
         }
+
+        self.curr = Rc::clone(&to_add);
     }
 
     // Inserts a branch, as a child of curr node
@@ -90,9 +92,7 @@ impl Tree {
             lst.push(Rc::clone(&node));
         }
 
-        if !self.curr.borrow().is_leaf {
-            self.curr = Rc::clone(&node);
-        }
+        self.curr = Rc::clone(&node);
     }
 
     // Moves curr pointer up to its parent
@@ -103,7 +103,7 @@ impl Tree {
         }
     }
 
-    // Moves curr to its last child
+    // Moves curr to its last child; only if there exists a child to move to
     fn curr_last(&mut self) -> () {
         let current_node = self.curr.clone();
         let node_borrow = current_node.borrow();
@@ -115,7 +115,7 @@ impl Tree {
         }
     }
 
-    // removes curr pointer; assuming that its the last one
+    // removes last child of curr; only if curr has children
     fn remove_curr(&mut self) -> Option<Rc<RefCell<Node>>> {
         let mut borrowed = self.curr.borrow_mut();
         match &mut borrowed.value {
@@ -193,25 +193,23 @@ pub fn run_ast(token_vec: Vec<Token>) -> Tree {
             }
             Suffix => {
                 match token.value.as_str() {
-                    "empty_line" => {
-                        match output.get_curr_tag().as_str() {
-                            "table" => {
-                                output.curr_up();
-                            }
-                            _ => {
-                                output.curr_last();
-                                if output.curr.borrow().tag == "" {
-                                    output.curr_up();
-                                    let leaf: Rc<RefCell<Node>> = output.remove_curr().expect("");
-                                    output.insert_branch(&mut "p".to_string());
-                                    output.insert_node(leaf);
-                                    output.curr_up();
-                                }
-                                output.curr_up();
-                            }
+                    "empty_line" => match output.get_curr_tag().as_str() {
+                        "table" => {
+                            output.curr_up();
                         }
-                    }
-                    "h1" | "h2" | "h3" |"h4" | "h5" |"h6" => {
+                        _ => {
+                            output.curr_last();
+                            if output.curr.borrow().tag == "" {
+                                output.curr_up();
+                                let leaf: Rc<RefCell<Node>> = output.remove_curr().expect("");
+                                output.insert_branch(&mut "p".to_string());
+                                output.insert_node(leaf);
+                                output.curr_up();
+                            }
+                            output.curr_up();
+                        }
+                    },
+                    "h1" | "h2" | "h3" | "h4" | "h5" | "h6" => {
                         // Modify node, then submit
                         let prev: Rc<RefCell<Node>> = output.remove_curr().expect("");
                         open_tag = std::mem::take(&mut token.value);

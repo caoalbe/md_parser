@@ -56,7 +56,7 @@ pub fn run_lexer(config: &Config) -> Result<Vec<Token>, Box<dyn Error>> {
             let prefix: &str = words[0];
             if prefix.chars().all(|c| c == '#') {
                 let mut tag: String = String::from("h");
-                tag.push_str(prefix.len().to_string().as_str());  
+                tag.push_str(prefix.len().to_string().as_str());
                 output.push(Token {
                     token_type: Prefix,
                     value: tag,
