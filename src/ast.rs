@@ -141,7 +141,7 @@ impl Tree {
     }
 
     // Removes last child of curr; only if curr has children
-    fn remove_curr(&mut self) -> Option<Rc<RefCell<Node>>> {
+    fn remove_curr_youngest(&mut self) -> Option<Rc<RefCell<Node>>> {
         let mut borrowed = self.curr.borrow_mut();
         match &mut borrowed.value {
             Children(vec_node) => vec_node.pop(),
@@ -212,6 +212,7 @@ pub fn run_ast(token_vec: Vec<Token>) -> Tree {
                 // Create branch node with given tag
                 open_tag = std::mem::take(&mut token.value);
                 output.insert_leaf(&mut open_tag, &mut "".to_string());
+                output.curr_up();
 
                 tree_state = TreeState::Prefix;
             }
@@ -226,13 +227,15 @@ pub fn run_ast(token_vec: Vec<Token>) -> Tree {
                     },
                     "h1" | "h2" | "h3" | "h4" | "h5" | "h6" => {
                         open_tag = std::mem::take(&mut token.value);
-                        output.curr.borrow_mut().set_tag(&mut open_tag);
+                        let target: Rc<RefCell<Node>> = output.remove_curr_youngest().expect("");
+                        target.borrow_mut().set_tag(&mut open_tag);
+                        output.insert_node(target);
                         output.curr_up();
                     }
                     "table" => {
                         // Change parent node
                         output.curr_up();
-                        let prev: Rc<RefCell<Node>> = output.remove_curr().expect("");
+                        let prev: Rc<RefCell<Node>> = output.remove_curr_youngest().expect("");
                         let token_headers: Option<String> = prev.borrow().get_literal();
 
                         open_tag = std::mem::take(&mut token.value);
@@ -262,19 +265,24 @@ pub fn run_ast(token_vec: Vec<Token>) -> Tree {
                     }
                     output.curr_up();
                 } else {
-                    open_text = std::mem::take(&mut token.value);
                     match tree_state {
                         TreeState::Start => {
-                            output.curr_up();
+                            open_text = std::mem::take(&mut token.value);
                             output.insert_leaf(&mut "p".to_string(), &mut open_text);
+                            output.curr_up();
                         }
                         TreeState::Prefix => {
-                            output.curr.borrow_mut().set_value(Inline(open_text));
+                            open_text = std::mem::take(&mut token.value);
+                            let target: Rc<RefCell<Node>> =
+                                output.remove_curr_youngest().expect("");
+                            target.borrow_mut().set_value(Inline(open_text));
+                            output.insert_node(target);
                             output.curr_up();
                         }
                         TreeState::Literal => {
-                            output.curr_up();
+                            open_text = std::mem::take(&mut token.value);
                             output.insert_leaf(&mut "p".to_string(), &mut open_text);
+                            output.curr_up();
                         }
                     }
                 }
