@@ -5,6 +5,12 @@ use crate::lexer::Token;
 use crate::lexer::TokenType::*;
 use Content::*;
 
+pub enum TreeState {
+    Start,
+    Prefix,
+    Literal,
+}
+
 pub enum Content {
     Children(Vec<Rc<RefCell<Node>>>),
     Inline(String),
@@ -23,6 +29,24 @@ pub struct Tree {
 }
 
 impl Node {
+    pub fn build_branch() -> Node {
+        Node {
+            parent: None,
+            tag: "".to_string(),
+            value: Children(vec![]),
+            is_leaf: false,
+        }
+    }
+
+    pub fn build_leaf() -> Node {
+        Node {
+            parent: None,
+            tag: "".to_string(),
+            value: Inline("".to_string()),
+            is_leaf: true,
+        }
+    }
+
     pub fn get_tag(&self) -> &str {
         return self.tag.as_str();
     }
@@ -35,6 +59,18 @@ impl Node {
             Inline(text) => Some(text.clone()),
             _ => None,
         }
+    }
+
+    pub fn set_value(&mut self, new_content: Content) -> () {
+        match new_content {
+            Children(_) => {
+                self.is_leaf = false;
+            }
+            Inline(_) => {
+                self.is_leaf = true;
+            }
+        }
+        self.value = new_content;
     }
 }
 
@@ -85,6 +121,7 @@ impl Tree {
         self.curr = Rc::clone(&to_add);
     }
 
+    // TODO: See if we can make this take Node rather than Rc<RefCell<Node
     pub fn insert_node(&mut self, node: Rc<RefCell<Node>>) -> () {
         node.borrow_mut().parent = Some(Rc::clone(&self.curr));
 
@@ -103,8 +140,20 @@ impl Tree {
         }
     }
 
+    // Moves curr to its first child; only if there exists a child to move to
+    fn curr_first_child(&mut self) -> () {
+        let current_node = self.curr.clone();
+        let node_borrow = current_node.borrow();
+
+        if let Children(vec_nodes) = &node_borrow.value {
+            if let Some(last_child) = vec_nodes.first() {
+                self.curr = Rc::clone(last_child);
+            }
+        }
+    }
+
     // Moves curr to its last child; only if there exists a child to move to
-    fn curr_last(&mut self) -> () {
+    fn curr_last_child(&mut self) -> () {
         let current_node = self.curr.clone();
         let node_borrow = current_node.borrow();
 
@@ -143,26 +192,29 @@ impl Tree {
         builder.push_str(&" ".repeat(depth * tab_size));
         match &target.value {
             Children(vec_node) => {
-                if vec_node.len() == 1 && vec_node[0].borrow().is_leaf {
-                    // Single, leaf child.  Print all in one line
-                    if let Inline(child_text) = &vec_node[0].borrow().value {
-                        builder.push_str(&format!(
-                            "<{}>{}</{}>\n",
-                            target.tag, child_text, target.tag
-                        ));
-                    }
-                } else {
-                    // Multiple children
-                    builder.push_str(&format!("<{}>\n", target.tag));
-                    for node in vec_node {
-                        self.display_helper(builder, &node.borrow(), depth + 1, tab_size);
-                    }
-                    builder.push_str(&" ".repeat(depth * tab_size));
-                    builder.push_str(&format!("</{}>\n", target.tag));
+                // Multiple children
+                builder.push_str(&format!("<{}>\n", target.tag));
+                for node in vec_node {
+
+
+                    // if Rc::ptr_eq(&self.curr, node) {
+                    //     builder.push_str("---CURR---below---\n");
+                    // }
+
+
+
+                    self.display_helper(builder, &node.borrow(), depth + 1, tab_size);
                 }
+                builder.push_str(&" ".repeat(depth * tab_size));
+                builder.push_str(&format!("</{}>\n", target.tag));
             }
             Inline(text) => {
-                builder.push_str(&format!("{}\n", text));
+                builder.push_str(&format!(
+                    "<{}>{}</{}>\n",
+                    target.get_tag(),
+                    text,
+                    target.get_tag()
+                ));
             }
         }
     }
@@ -182,44 +234,38 @@ pub fn run_ast(token_vec: Vec<Token>) -> Tree {
         return output;
     }
 
+    let mut tree_state: TreeState = TreeState::Start;
     let mut open_tag: String;
     let mut open_text: String;
+
     for mut token in token_vec {
+
+
         match token.token_type {
             Prefix => {
                 // Create branch node with given tag
                 open_tag = std::mem::take(&mut token.value);
-                output.insert_branch(&mut open_tag);
+                output.insert_leaf(&mut open_tag, &mut "".to_string());
+
+                tree_state = TreeState::Prefix;
             }
             Suffix => {
+                // Assumes <curr> points to the node to edit 
                 match token.value.as_str() {
                     "empty_line" => match output.get_curr_tag().as_str() {
                         "table" => {
                             output.curr_up();
                         }
-                        _ => {
-                            output.curr_last();
-                            if output.curr.borrow().tag == "" {
-                                output.curr_up();
-                                let leaf: Rc<RefCell<Node>> = output.remove_curr().expect("");
-                                output.insert_branch(&mut "p".to_string());
-                                output.insert_node(leaf);
-                                output.curr_up();
-                            }
-                            output.curr_up();
-                        }
+                        _ => {}
                     },
                     "h1" | "h2" | "h3" | "h4" | "h5" | "h6" => {
-                        // Modify node, then submit
-                        let prev: Rc<RefCell<Node>> = output.remove_curr().expect("");
                         open_tag = std::mem::take(&mut token.value);
-                        output.insert_branch(&mut open_tag);
-                        output.insert_node(prev);
-                        output.curr_up();
+                        output.curr.borrow_mut().set_tag(&mut open_tag);
                         output.curr_up();
                     }
                     "table" => {
                         // Change parent node
+                        output.curr_up();
                         let prev: Rc<RefCell<Node>> = output.remove_curr().expect("");
                         let token_headers: Option<String> = prev.borrow().get_literal();
 
@@ -229,8 +275,7 @@ pub fn run_ast(token_vec: Vec<Token>) -> Tree {
 
                         if let Some(text) = token_headers {
                             for col in text.split('|').filter(|s| !s.is_empty()) {
-                                output.insert_branch(&mut "th".to_string());
-                                output.insert_leaf(&mut col.to_string());
+                                output.insert_leaf(&mut "th".to_string(), &mut col.to_string());
                                 output.curr_up();
                             }
                         }
@@ -238,23 +283,37 @@ pub fn run_ast(token_vec: Vec<Token>) -> Tree {
                     }
                     _ => {}
                 }
+
+                tree_state = TreeState::Start;
             }
             Literal => {
                 if output.get_curr_tag() == "table" {
                     open_text = std::mem::take(&mut token.value);
                     output.insert_branch(&mut "tr".to_string());
                     for col in open_text.split('|').filter(|s| !s.is_empty()) {
-                        output.insert_branch(&mut "td".to_string());
-                        output.insert_leaf(&mut col.to_string());
+                        output.insert_leaf(&mut "td".to_string(), &mut col.to_string());
                         output.curr_up();
                     }
                     output.curr_up();
                 } else {
-                    // Create leaf node with given text
                     open_text = std::mem::take(&mut token.value);
-                    output.insert_leaf(&mut open_text);
-                    output.curr_up();
+                    match tree_state {
+                        TreeState::Start => {
+                            output.curr_up();
+                            output.insert_leaf(&mut "p".to_string(), &mut open_text);
+                        },
+                        TreeState::Prefix => {
+                            output.curr.borrow_mut().set_value(Inline(open_text));
+                            output.curr_up();
+                        },
+                        TreeState::Literal => {
+                            output.curr_up();
+                            output.insert_leaf(&mut "p".to_string(), &mut open_text);
+                        },
+                    }
                 }
+                
+                tree_state = TreeState::Literal;
             }
         }
     }

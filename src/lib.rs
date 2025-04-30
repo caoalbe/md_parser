@@ -15,29 +15,29 @@ pub fn run(config: Config) -> Result<(), Box<dyn Error>> {
     let tokens: Vec<Token> = run_lexer(&config)?;
 
     // just for debugging
-    println!("   type - value");
-    println!("---------------------");
-    for token in tokens.iter() {
-        match token.token_type {
-            Prefix => {
-                println!(" prefix - {}", token.value);
-            }
-            Suffix => {
-                println!(" suffix - {}", token.value);
-            }
-            Literal => {
-                println!("literal - {}", token.value);
-            }
-        }
-    }
-    println!("-=-=-=--=-=-=--=-=-=--=-=-=--=-=-=--=-=-=--=-=-=--=-=-=--=-=-=-");
+    // println!("   type - value");
+    // println!("---------------------");
+    // for token in tokens.iter() {
+    //     match token.token_type {
+    //         Prefix => {
+    //             println!(" prefix - {}", token.value);
+    //         }
+    //         Suffix => {
+    //             println!(" suffix - {}", token.value);
+    //         }
+    //         Literal => {
+    //             println!("literal - {}", token.value);
+    //         }
+    //     }
+    // }
+    // println!("-=-=-=--=-=-=--=-=-=--=-=-=--=-=-=--=-=-=--=-=-=--=-=-=--=-=-=-");
 
     // AST
     let ast = run_ast(tokens);
-    println!("COMPLETED - run_ast");
+    // println!("COMPLETED - run_ast");
 
     // WRITE
-    println!("{}", ast);
+    println!("{ast}");
 
     Ok(())
 }
