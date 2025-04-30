@@ -5,7 +5,7 @@ use crate::lexer::Token;
 use crate::lexer::TokenType::*;
 use Content::*;
 
-pub enum TreeState {
+enum TreeState {
     Start,
     Prefix,
     Literal,
@@ -18,13 +18,13 @@ pub enum Content {
 
 pub struct Node {
     parent: Option<Rc<RefCell<Node>>>,
-    pub tag: String,
-    pub value: Content,
+    tag: String,
+    value: Content,
     is_leaf: bool,
 }
 
 pub struct Tree {
-    pub root: Rc<RefCell<Node>>,
+    root: Rc<RefCell<Node>>,
     curr: Rc<RefCell<Node>>,
 }
 
@@ -121,7 +121,7 @@ impl Tree {
         self.curr = Rc::clone(&to_add);
     }
 
-    // TODO: See if we can make this take Node rather than Rc<RefCell<Node
+    // Inserts a node, as a child of curr node
     pub fn insert_node(&mut self, node: Rc<RefCell<Node>>) -> () {
         node.borrow_mut().parent = Some(Rc::clone(&self.curr));
 
@@ -140,31 +140,7 @@ impl Tree {
         }
     }
 
-    // Moves curr to its first child; only if there exists a child to move to
-    fn curr_first_child(&mut self) -> () {
-        let current_node = self.curr.clone();
-        let node_borrow = current_node.borrow();
-
-        if let Children(vec_nodes) = &node_borrow.value {
-            if let Some(last_child) = vec_nodes.first() {
-                self.curr = Rc::clone(last_child);
-            }
-        }
-    }
-
-    // Moves curr to its last child; only if there exists a child to move to
-    fn curr_last_child(&mut self) -> () {
-        let current_node = self.curr.clone();
-        let node_borrow = current_node.borrow();
-
-        if let Children(vec_nodes) = &node_borrow.value {
-            if let Some(last_child) = vec_nodes.last() {
-                self.curr = Rc::clone(last_child);
-            }
-        }
-    }
-
-    // removes last child of curr; only if curr has children
+    // Removes last child of curr; only if curr has children
     fn remove_curr(&mut self) -> Option<Rc<RefCell<Node>>> {
         let mut borrowed = self.curr.borrow_mut();
         match &mut borrowed.value {
@@ -195,14 +171,6 @@ impl Tree {
                 // Multiple children
                 builder.push_str(&format!("<{}>\n", target.tag));
                 for node in vec_node {
-
-
-                    // if Rc::ptr_eq(&self.curr, node) {
-                    //     builder.push_str("---CURR---below---\n");
-                    // }
-
-
-
                     self.display_helper(builder, &node.borrow(), depth + 1, tab_size);
                 }
                 builder.push_str(&" ".repeat(depth * tab_size));
@@ -224,7 +192,7 @@ impl std::fmt::Display for Tree {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let mut output: String = String::new();
         self.display_helper(&mut output, &self.root.borrow(), 0, 4);
-        write!(f, "{}", output)
+        write!(f, "{}", output.trim())
     }
 }
 
@@ -239,8 +207,6 @@ pub fn run_ast(token_vec: Vec<Token>) -> Tree {
     let mut open_text: String;
 
     for mut token in token_vec {
-
-
         match token.token_type {
             Prefix => {
                 // Create branch node with given tag
@@ -250,7 +216,7 @@ pub fn run_ast(token_vec: Vec<Token>) -> Tree {
                 tree_state = TreeState::Prefix;
             }
             Suffix => {
-                // Assumes <curr> points to the node to edit 
+                // Assumes <curr> points to the node to edit
                 match token.value.as_str() {
                     "empty_line" => match output.get_curr_tag().as_str() {
                         "table" => {
@@ -301,18 +267,18 @@ pub fn run_ast(token_vec: Vec<Token>) -> Tree {
                         TreeState::Start => {
                             output.curr_up();
                             output.insert_leaf(&mut "p".to_string(), &mut open_text);
-                        },
+                        }
                         TreeState::Prefix => {
                             output.curr.borrow_mut().set_value(Inline(open_text));
                             output.curr_up();
-                        },
+                        }
                         TreeState::Literal => {
                             output.curr_up();
                             output.insert_leaf(&mut "p".to_string(), &mut open_text);
-                        },
+                        }
                     }
                 }
-                
+
                 tree_state = TreeState::Literal;
             }
         }
