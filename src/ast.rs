@@ -72,6 +72,14 @@ impl Node {
         }
         self.value = new_content;
     }
+
+    pub fn append_literal(&mut self, to_add: &mut String) -> () {
+        if let Inline(curr) = &self.value {
+            let mut temp: String = curr.clone();
+            temp.push_str(&to_add);
+            self.set_value(Inline(temp));
+        }
+    }
 }
 
 impl Tree {
@@ -157,6 +165,10 @@ impl Tree {
         self.curr.borrow_mut().set_tag(new_tag);
     }
 
+    pub fn append_curr_literal(&mut self, to_add: &mut String) -> () {
+        self.curr.borrow_mut().append_literal(to_add);
+    }
+
     // Helper for the display trait.  This generates the string to print with the tab formatting
     fn display_helper(
         &self,
@@ -225,6 +237,18 @@ pub fn run_ast(token_vec: Vec<Token>) -> Tree {
                         }
                         _ => {}
                     },
+                    "code_block" => {
+                        if output.get_curr_tag() == "code" {
+                            // exit block
+                            output.curr_up();
+                            output.curr_up();
+                        } else {
+                            // start block
+                            output.insert_branch(&mut "pre".to_string());
+                            output.insert_leaf(&mut "code".to_string(), &mut "".to_string());
+                        }
+
+                    },
                     "h1" | "h2" | "h3" | "h4" | "h5" | "h6" => {
                         open_tag = std::mem::take(&mut token.value);
                         let target: Rc<RefCell<Node>> = output.remove_curr_youngest().expect("");
@@ -264,6 +288,9 @@ pub fn run_ast(token_vec: Vec<Token>) -> Tree {
                         output.curr_up();
                     }
                     output.curr_up();
+                } else if output.get_curr_tag() == "code" {
+                    open_text = std::mem::take(&mut token.value);
+                    output.append_curr_literal(&mut open_text);
                 } else {
                     match tree_state {
                         TreeState::Start => {
