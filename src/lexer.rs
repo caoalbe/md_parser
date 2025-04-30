@@ -31,7 +31,7 @@ pub fn run_lexer(config: &Config) -> Result<Vec<Token>, Box<dyn Error>> {
                     token_type: Suffix,
                     value: String::from("empty_line"),
                 })
-            } else if line == "```"{
+            } else if line == "```" {
                 output.push(Token {
                     token_type: Suffix,
                     value: String::from("code_block"),

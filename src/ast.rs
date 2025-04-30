@@ -247,8 +247,7 @@ pub fn run_ast(token_vec: Vec<Token>) -> Tree {
                             output.insert_branch(&mut "pre".to_string());
                             output.insert_leaf(&mut "code".to_string(), &mut "".to_string());
                         }
-
-                    },
+                    }
                     "h1" | "h2" | "h3" | "h4" | "h5" | "h6" => {
                         open_tag = std::mem::take(&mut token.value);
                         let target: Rc<RefCell<Node>> = output.remove_curr_youngest().expect("");
@@ -280,19 +279,21 @@ pub fn run_ast(token_vec: Vec<Token>) -> Tree {
                 tree_state = TreeState::Start;
             }
             Literal => {
-                if output.get_curr_tag() == "table" {
-                    open_text = std::mem::take(&mut token.value);
-                    output.insert_branch(&mut "tr".to_string());
-                    for col in open_text.split('|').filter(|s| !s.is_empty()) {
-                        output.insert_leaf(&mut "td".to_string(), &mut col.to_string());
+                match output.get_curr_tag().as_str() {
+                    "table" => {
+                        open_text = std::mem::take(&mut token.value);
+                        output.insert_branch(&mut "tr".to_string());
+                        for col in open_text.split('|').filter(|s| !s.is_empty()) {
+                            output.insert_leaf(&mut "td".to_string(), &mut col.to_string());
+                            output.curr_up();
+                        }
                         output.curr_up();
                     }
-                    output.curr_up();
-                } else if output.get_curr_tag() == "code" {
-                    open_text = std::mem::take(&mut token.value);
-                    output.append_curr_literal(&mut open_text);
-                } else {
-                    match tree_state {
+                    "code" => {
+                        open_text = std::mem::take(&mut token.value);
+                        output.append_curr_literal(&mut open_text);
+                    }
+                    _ => match tree_state {
                         TreeState::Start => {
                             open_text = std::mem::take(&mut token.value);
                             output.insert_leaf(&mut "p".to_string(), &mut open_text);
@@ -311,7 +312,7 @@ pub fn run_ast(token_vec: Vec<Token>) -> Tree {
                             output.insert_leaf(&mut "p".to_string(), &mut open_text);
                             output.curr_up();
                         }
-                    }
+                    },
                 }
 
                 tree_state = TreeState::Literal;
