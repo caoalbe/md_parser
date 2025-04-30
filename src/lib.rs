@@ -1,4 +1,6 @@
 use std::error::Error;
+use std::fs::File;
+use std::io::Write;
 
 pub mod ast;
 pub mod config;
@@ -14,10 +16,11 @@ pub fn run(config: Config) -> Result<(), Box<dyn Error>> {
     let tokens: Vec<Token> = run_lexer(&config)?;
 
     // AST
-    let ast = run_ast(tokens);
+    let ast: ast::Tree = run_ast(tokens);
 
     // WRITE
-    println!("{ast}");
+    let mut file: File = File::create(config.output_path)?;
+    write!(file, "{}", ast)?;
 
     Ok(())
 }

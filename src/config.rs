@@ -8,18 +8,22 @@ impl Config {
         args.next(); // skip path of executable
 
         // Read program arguments
-        let md_path = match args.next() {
+        let md_path: String = match args.next() {
             Some(path) => path,
             None => return Err("No markdown file specified"),
         };
 
-        let output_path = match args.next() {
+        let output_path: String = match args.next() {
             Some(path) => path,
-            None => "output.html".to_string(),
+            None => {
+                let mut fallback_name: String = match md_path.split('.').nth(0) {
+                    Some(text) => text.to_string(),
+                    None => "output".to_string(),
+                };
+                fallback_name.push_str(".html");
+                fallback_name
+            }
         };
-
-        // TODO: Error check arguments <md_path>, <output_path>
-        // ...
 
         Ok(Config {
             md_path,
